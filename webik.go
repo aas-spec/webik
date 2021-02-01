@@ -19,7 +19,6 @@ import (
 	"strings"
 )
 
-
 type options struct {
 	Port           string
 	SourceApiRoute string
@@ -32,7 +31,7 @@ var opts options
 func index(w http.ResponseWriter, r *http.Request) {
 	pwd, _ := os.Getwd()
 	path := r.URL.Path
-	if opts.SourceApiRoute != "" &&  strings.Index(path, opts.SourceApiRoute) == 0 {
+	if opts.SourceApiRoute != "" && strings.Index(path, opts.SourceApiRoute) == 0 {
 		proxyHandler(w, r, opts.TargetApiRoute, opts.SourceApiRoute)
 		return
 	}
@@ -69,14 +68,14 @@ start:
 
 func ListenAndServe(Port string, SitePath string, TargetApiRoute string, SourceApiRoute string) {
 
-	err:=mime.AddExtensionType(".css", "text/css")
+	err := mime.AddExtensionType(".css", "text/css")
 	if err == nil {
 		err = mime.AddExtensionType(".js", "text/javascript")
 	}
-	if err==nil {
-		err= mime.AddExtensionType(".html", "text/html; charset=utf-8")
+	if err == nil {
+		err = mime.AddExtensionType(".html", "text/html; charset=utf-8")
 	}
-	if err !=nil {
+	if err != nil {
 		log.Printf("Warning: unable to register extension types %v", err)
 	}
 
@@ -98,7 +97,7 @@ func ListenAndServe(Port string, SitePath string, TargetApiRoute string, SourceA
 func proxyHandler(res http.ResponseWriter, req *http.Request, TargetUrl string, SrcUrl string) {
 	targetUrl, _ := url.Parse(TargetUrl)
 	log.Printf("Target URL: %s", targetUrl)
-	log.Printf( "Source Request: %v", req)
+	log.Printf("Source Request: %v", req)
 	req.URL.Host = targetUrl.Host
 	req.URL.Scheme = targetUrl.Scheme
 	req.Header.Set("X-Forwarded-Host", req.Header.Get("Host"))
@@ -109,4 +108,3 @@ func proxyHandler(res http.ResponseWriter, req *http.Request, TargetUrl string, 
 	proxy := httputil.NewSingleHostReverseProxy(targetUrl)
 	proxy.ServeHTTP(res, req)
 }
-
