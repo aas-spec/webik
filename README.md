@@ -2,9 +2,11 @@
 
 Webik - Micro web server for running Frontend application locally based on Angular, Vue, React, etc.
 
-Handling HTTP GET "/" "" for index.html
-Processing GET for files with extensions: css, html, js, etc
-Create reverse proxy for the backend
+- Handling HTTP GET "/" "" for index.html
+
+- Processing GET for files with extensions: css, html, js, etc
+
+- Create reverse proxy for the backend
 
 ## License: 
 Mit license
