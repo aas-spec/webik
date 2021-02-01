@@ -44,6 +44,9 @@ func main() {
 Usage: weserver --serverPort=:5050 --sitePath=./mysappite --sourceRoute=/api" --targetRoute=http:/127.0.0.1:5555/api
 
 serverPort - WebServer Port 
+
 sitePath - The path to a web application on your hard drive 
+
 sourceRoute - The part of API url as Frontend knows it 
+
 targetRoute - The initial part of Api url
