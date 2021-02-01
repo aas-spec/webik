@@ -47,7 +47,7 @@ Usage: weserver --serverPort=:5050 --sitePath=./mysappite --sourceRoute=/api --t
 
 serverPort - WebServer Port 
 
-sitePath - The path to a web application on your hard drive 
+sitePath - The path to the web application on your hard drive 
 
 sourceRoute - The part of API url as Frontend knows it 
 
