@@ -13,7 +13,7 @@ Mit license
 
 ##Example
 
-go ```
+``` go
 package main
 
 import (
