@@ -12,6 +12,8 @@ Mit license
 
 
 ##Example
+
+go ```
 package main
 
 import (
@@ -35,7 +37,7 @@ func main() {
 	}
 	webik.ListenAndServe(*serverPort, *sitePath, *targetRoute, *sourceRoute)
 }
-
+```
 
 ##Command Line Arguments
 Usage: weserver --serverPort=:5050 --sitePath=./mysappite --sourceRoute=/api" --targetRoute=http:/127.0.0.1:5555/api
