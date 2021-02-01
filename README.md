@@ -43,7 +43,7 @@ func main() {
 
 ### Command Line Arguments
 
-Usage: weserver --serverPort=:5050 --sitePath=./mysappite --sourceRoute=/api" --targetRoute=http:/127.0.0.1:5555/api
+Usage: weserver --serverPort=:5050 --sitePath=./mysappite --sourceRoute=/api --targetRoute=http:/127.0.0.1:5555/api
 
 serverPort - WebServer Port 
 
