@@ -5,8 +5,7 @@ Webik - Micro web server for running Frontend application locally based on Angul
 - Create reverse proxy for the backend
 
    
-Licence: 
-Mit licence
+License: Mit license
 
 
 Example:
