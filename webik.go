@@ -60,9 +60,6 @@ start:
 				log.Printf("Warning: unable to write response: %v", err)
 			}
 		}
-	default:
-		path = "/index.html"
-		goto start
 	}
 }
 
