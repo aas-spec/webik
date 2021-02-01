@@ -6,12 +6,12 @@ Handling HTTP GET "/" "" for index.html
 Processing GET for files with extensions: css, html, js, etc
 Create reverse proxy for the backend
 
-##License: 
+## License: 
 Mit license
  
 
 
-##Example
+### Example
 
 ``` go
 package main
@@ -39,7 +39,7 @@ func main() {
 }
 ```
 
-##Command Line Arguments
+### Command Line Arguments
 
 Usage: weserver --serverPort=:5050 --sitePath=./mysappite --sourceRoute=/api" --targetRoute=http:/127.0.0.1:5555/api
 
