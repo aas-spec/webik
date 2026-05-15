@@ -1,14 +1,8 @@
-// Webik - Micro web server to run Frontend applications based on Angular, Vue, React, etc.
-
-// - Handling HTTP GET "/" "" for index.html
-// - Processing GET for files with extensions: css, html, js
-//- Create reverse proxy for the backend
-// Written by Andrey Simanov 2021
-
+// Package webik provides a micro web server for serving frontend applications
+// (Angular, Vue, React, etc.) with optional API reverse proxy support.
 package webik
 
 import (
-	"io/ioutil"
 	"log"
 	"mime"
 	"net/http"
@@ -19,84 +13,132 @@ import (
 	"strings"
 )
 
-type options struct {
-	Port           string
-	SourceApiRoute string
-	TargetApiRoute string
-	Path           string
+func init() {
+	types := map[string]string{
+		".css":  "text/css; charset=utf-8",
+		".js":   "text/javascript",
+		".html": "text/html; charset=utf-8",
+	}
+	for ext, ct := range types {
+		if err := mime.AddExtensionType(ext, ct); err != nil {
+			log.Printf("webik: failed to register MIME type for %s: %v", ext, err)
+		}
+	}
 }
 
-var opts options
+// Server serves static files from a directory and proxies API requests
+// to a backend service.
+type Server struct {
+	port           string
+	sitePath       string
+	sourceAPIRoute string
+	targetAPIRoute string
+	workDir        string
+}
 
-
-func ListenAndServe(Port string, SitePath string, TargetApiRoute string, SourceApiRoute string) {
-
-	err := mime.AddExtensionType(".css", "text/css")
-	if err == nil {
-		err = mime.AddExtensionType(".js", "text/javascript")
-	}
-	if err == nil {
-		err = mime.AddExtensionType(".html", "text/html; charset=utf-8")
-	}
+// New returns a Server configured with the given parameters.
+// port is the address to listen on (e.g. ":8080").
+// sitePath is the directory containing static files, relative to the working directory.
+// targetAPIRoute is the backend URL to proxy API requests to.
+// sourceAPIRoute is the URL prefix that identifies API requests (e.g. "/api").
+func New(port, sitePath, targetAPIRoute, sourceAPIRoute string) (*Server, error) {
+	workDir, err := os.Getwd()
 	if err != nil {
-		log.Printf("Warning: unable to register extension types %v", err)
+		return nil, err
 	}
+	return &Server{
+		port:           port,
+		sitePath:       sitePath,
+		sourceAPIRoute: sourceAPIRoute,
+		targetAPIRoute: targetAPIRoute,
+		workDir:        workDir,
+	}, nil
+}
 
-	opts = options{
-		Port:           Port,
-		Path:           SitePath,
-		SourceApiRoute: SourceApiRoute,
-		TargetApiRoute: TargetApiRoute,
+// ServeHTTP implements http.Handler.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.sourceAPIRoute != "" && strings.HasPrefix(r.URL.Path, s.sourceAPIRoute) {
+		s.proxy(w, r)
+		return
 	}
+	s.serveFile(w, r)
+}
 
-	http.HandleFunc("/", requestHandler)
-	log.Println("Webik Listen on port", opts.Port+"...")
-	err = http.ListenAndServe(opts.Port, nil)
+// ListenAndServe starts the HTTP server on the configured port.
+// It returns a non-nil error when the server stops.
+func (s *Server) ListenAndServe() error {
+	log.Printf("webik: listening on %s", s.port)
+	return http.ListenAndServe(s.port, s)
+}
+
+// ListenAndServe is a convenience wrapper that creates a Server and starts it.
+// It calls log.Fatal if the server cannot start or stops unexpectedly.
+func ListenAndServe(port, sitePath, targetAPIRoute, sourceAPIRoute string) {
+	s, err := New(port, sitePath, targetAPIRoute, sourceAPIRoute)
 	if err != nil {
+		log.Fatalf("webik: %v", err)
+	}
+	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func requestHandler(w http.ResponseWriter, r *http.Request) {
-	mainPath, _ := os.Getwd()
-	path := r.URL.Path
-	if opts.SourceApiRoute != "" && strings.Index(path, opts.SourceApiRoute) == 0 {
-		proxyHandler(w, r, opts.TargetApiRoute, opts.SourceApiRoute)
+func (s *Server) serveFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	switch r.Method {
-	case "GET":
-		fileExt := filepath.Ext(path)
-		if path == "" || path == "/" || fileExt == "" {
-			path = "/index.html"
-		}
-		filePath := strings.Replace(path, "/", string(os.PathSeparator), -1)
-		content, err := ioutil.ReadFile(mainPath + string(os.PathSeparator) + opts.Path + string(os.PathSeparator) + filePath)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		contentType := mime.TypeByExtension(fileExt)
-		w.Header().Set("Content-Type", contentType)
-		_, err = w.Write(content)
-		if err != nil {
-			log.Printf("Warning: unable to write response: %v", err)
-		}
+
+	path := r.URL.Path
+	ext := filepath.Ext(path)
+
+	// Serve index.html for the root and any path without a file extension
+	// so that SPA client-side routing works correctly.
+	if path == "" || path == "/" || ext == "" {
+		path = "/index.html"
+		ext = ".html"
+	}
+
+	filePath := filepath.Join(s.workDir, s.sitePath, filepath.FromSlash(path))
+	baseDir := filepath.Clean(filepath.Join(s.workDir, s.sitePath))
+
+	if filePath != baseDir && !strings.HasPrefix(filePath, baseDir+string(os.PathSeparator)) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", mime.TypeByExtension(ext))
+	if _, err := w.Write(content); err != nil {
+		log.Printf("webik: write error: %v", err)
 	}
 }
 
+func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
+	target, err := url.Parse(s.targetAPIRoute)
+	if err != nil {
+		log.Printf("webik: invalid target URL %q: %v", s.targetAPIRoute, err)
+		http.Error(w, "bad gateway", http.StatusBadGateway)
+		return
+	}
 
-func proxyHandler(res http.ResponseWriter, req *http.Request, TargetUrl string, SrcUrl string) {
-	targetUrl, _ := url.Parse(TargetUrl)
-	log.Printf("Target URL: %s", targetUrl)
-	log.Printf("Source Request: %v", req)
-	req.URL.Host = targetUrl.Host
-	req.URL.Scheme = targetUrl.Scheme
-	req.Header.Set("X-Forwarded-Host", req.Header.Get("Host"))
-	req.URL, _ = url.Parse(strings.Replace(req.URL.String(), SrcUrl, "", 1))
-	req.RequestURI = strings.Replace(req.RequestURI, SrcUrl, "", 1)
-	req.Host = targetUrl.Host
-	log.Printf("Request: %v", req)
-	proxy := httputil.NewSingleHostReverseProxy(targetUrl)
-	proxy.ServeHTTP(res, req)
+	rp := httputil.NewSingleHostReverseProxy(target)
+	orig := rp.Director
+
+	// Strip the source route prefix before the default Director joins
+	// target.Path with the incoming request path.
+	rp.Director = func(req *http.Request) {
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, s.sourceAPIRoute)
+		if req.URL.RawPath != "" {
+			req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, s.sourceAPIRoute)
+		}
+		orig(req)
+	}
+
+	rp.ServeHTTP(w, r)
 }
